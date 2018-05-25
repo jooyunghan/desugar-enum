@@ -25,6 +25,7 @@ public class ActionMain {
     }
 
     void handle(Action action) {
+        /** 주석 */
         last = action;
         switch (state) {
             case IDLE:
@@ -45,6 +46,15 @@ public class ActionMain {
 
                 }
                 break;
+//            case PLAYING:
+//                if (action == Action.PAUSE) {
+//                    this.state = PAUSED;
+//                } else if (action.equals(STOP)) {
+//                    this.state = IDLE;
+//                } else {
+//
+//                }
+//                break;
             default:
                 if (state == PAUSED && action == PLAY) {
                     this.state = PLAYING;
