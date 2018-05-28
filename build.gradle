@@ -6,12 +6,13 @@ apply plugin: 'java'
 sourceCompatibility = 1.8
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
 dependencies {
-    compile 'com.github.javaparser:javaparser-symbol-solver-core:3.6.6'
-    compile 'com.github.javaparser:javaparser-core:3.6.6'
+    compile 'com.github.javaparser:javaparser-symbol-solver-core:3.6.7-SNAPSHOT'
+    compile 'com.github.javaparser:javaparser-core:3.6.7-SNAPSHOT'
     testCompile("org.assertj:assertj-core:3.10.0")
     testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')

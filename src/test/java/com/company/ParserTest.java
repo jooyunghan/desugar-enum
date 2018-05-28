@@ -4,7 +4,11 @@ import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.BinaryExpr;
+import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.stmt.SwitchStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
@@ -36,7 +40,7 @@ public class ParserTest {
 
     private Stream<CompilationUnit> getCUs() throws IOException {
         return Files.walk(Paths.get(FILE_PATH))
-                .filter(p -> p.toString().endsWith(".java")).map(shh(JavaParser::parse)).map(LexicalPreservingPrinter::setup);
+                .filter(p -> p.toString().endsWith(".java")).map(shh(JavaParser::parse));
     }
 
     @Test
@@ -80,13 +84,13 @@ public class ParserTest {
 
         ParserConfiguration config = JavaParser.getStaticConfiguration();
         config.setSymbolResolver(new JavaSymbolSolver(typeSolver));
+        config.setStoreTokens(true);
 
-        EnumDesugarVisitor desugar = new EnumDesugarVisitor();
+        EnumDesugarVisitor desugar = new EnumDesugarVisitor("org.example.Action");
         getCUs().map(cu -> (Node) desugar.visit(cu, null)).forEach(node -> {
 
             try {
-                System.out.println(LexicalPreservingPrinter.print(node));
-//                System.out.print(node);
+                System.out.print(node);
             } catch (Exception e) {
                 System.out.print(node);
             }
@@ -139,25 +143,81 @@ public class ParserTest {
 
         ParserConfiguration config = JavaParser.getStaticConfiguration();
         config.setSymbolResolver(new JavaSymbolSolver(typeSolver));
-        config.setLexicalPreservationEnabled(true);
-        CompilationUnit cu = JavaParser.parse("import java.util.List;\n\n" +
+//        config.setLexicalPreservationEnabled(true);
+        String code = "import java.util.List;\n\n" +
                 "class A {\n" +
                 "}\n" +
                 "class B {\n" +
                 "   List<A> as, as2[];\n" +
-                "}");
+                "}";
+        CompilationUnit cu = JavaParser.parse(code);
         ModifierVisitor<Void> visitor = new ModifierVisitor<Void>() {
             @Override
             public Visitable visit(ClassOrInterfaceType n, Void arg) {
                 super.visit(n, arg);
                 if (n.getNameAsString().equals("A")) {
-                    n.setName("String");
+                    return JavaParser.parseType("String");
                 }
                 return n;
             }
         };
         visitor.visit(cu, null);
-        System.out.println(LexicalPreservingPrinter.print(cu));
+        assertThat(cu.toString()).isEqualToIgnoringWhitespace(code.replace("<A>", "<String>"));
     }
+
+    @Test
+    public void changeEqualToMethodCall() {
+        String code = "true && action == MainAction.PLAY";
+        Node n = JavaParser.parseExpression(code);
+        LexicalPreservingPrinter.setup(n);
+        n.accept(new ModifierVisitor<Void>() {
+            @Override
+            public Visitable visit(BinaryExpr n, Void arg) {
+                super.visit(n, arg);
+                if (n.getOperator() == BinaryExpr.Operator.EQUALS) {
+                    return new MethodCallExpr(n.getLeft().clone(), "equals", NodeList.nodeList(n.getRight().clone()));
+                }
+                return n;
+            }
+        }, null);
+        assertThat(n.toString()).isEqualToIgnoringWhitespace("true && action.equals(MainAction.PLAY)");
+    }
+
+    @Test
+    public void ifElseChain() {
+        String code = "if (a == 1) {} else {}";
+        Node n = JavaParser.parseStatement(code);
+        LexicalPreservingPrinter.setup(n);
+        n.accept(new ModifierVisitor<Void>() {
+            @Override
+            public Visitable visit(BinaryExpr n, Void arg) {
+                super.visit(n, arg);
+                if (n.getOperator() == BinaryExpr.Operator.EQUALS) {
+                    return new MethodCallExpr(n.getLeft().clone(), "equals", NodeList.nodeList(n.getRight().clone()));
+                }
+                return n;
+            }
+        }, null);
+//        assertThat(n.toString()).isEqualToIgnoringWhitespace("true && action.equals(MainAction.PLAY)");
+    }
+
+    @Test
+    public void caseLabel() {
+        String code = "switch(a) { case 1: a = 1; a = 1; }";
+        Node n = JavaParser.parseStatement(code);
+        LexicalPreservingPrinter.setup(n);
+        n.accept(new ModifierVisitor<Void>() {
+            @Override
+            public Visitable visit(BinaryExpr n, Void arg) {
+                super.visit(n, arg);
+                if (n.getOperator() == BinaryExpr.Operator.EQUALS) {
+                    return new MethodCallExpr(n.getLeft().clone(), "equals", NodeList.nodeList(n.getRight().clone()));
+                }
+                return n;
+            }
+        }, null);
+//        assertThat(n.toString()).isEqualToIgnoringWhitespace("true && action.equals(MainAction.PLAY)");
+    }
+
 
 }
